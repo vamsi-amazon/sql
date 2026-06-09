@@ -65,8 +65,28 @@ public class TestUtils {
      */
     public static final String ENABLED_PROP = "tests.analytics.parquet_indices";
 
+    /**
+     * System property to override the number of primary shards for analytics-backed indices.
+     * Defaults to 1 (single-shard). Set to e.g. "3" for multi-shard coverage runs.
+     */
+    public static final String NUM_SHARDS_PROP = "tests.analytics.num_shards";
+
+    /**
+     * System property to override the number of replicas for analytics-backed indices.
+     * Defaults to "0" (no replicas). Set to e.g. "1" for multi-node coverage runs.
+     */
+    public static final String NUM_REPLICAS_PROP = "tests.analytics.num_replicas";
+
     public static boolean isEnabled() {
       return Boolean.parseBoolean(System.getProperty(ENABLED_PROP, "false"));
+    }
+
+    public static int getNumShards() {
+      return Integer.parseInt(System.getProperty(NUM_SHARDS_PROP, "1"));
+    }
+
+    public static int getNumReplicas() {
+      return Integer.parseInt(System.getProperty(NUM_REPLICAS_PROP, "0"));
     }
 
     // Composite-store format values shared by the index-level and cluster-level settings below.
@@ -106,7 +126,8 @@ public class TestUtils {
           jsonObject.has("settings") ? jsonObject.getJSONObject("settings") : new JSONObject();
       JSONObject indexSettings =
           settings.has("index") ? settings.getJSONObject("index") : new JSONObject();
-      indexSettings.put("number_of_shards", 1);
+      indexSettings.put("number_of_shards", getNumShards());
+      indexSettings.put("number_of_replicas", getNumReplicas());
       indexSettings.put("pluggable.dataformat.enabled", true);
       indexSettings.put("pluggable.dataformat", DATAFORMAT_COMPOSITE);
       indexSettings.put("composite.primary_data_format", PRIMARY_FORMAT_PARQUET);

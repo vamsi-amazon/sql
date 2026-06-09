@@ -1142,6 +1142,11 @@ task analyticsCompatibilityTest(type: RestIntegTestTask) {
     // Without this, ~60% of tests fail with "No backend can scan all requested fields".
     systemProperty 'tests.analytics.parquet_indices', 'true'
 
+    // Multi-shard config — defaults to 1 shard, 0 replicas (original behavior).
+    // Overridden by the multi-shard task variants below.
+    systemProperty 'tests.analytics.num_shards', '1'
+    systemProperty 'tests.analytics.num_replicas', '0'
+
     systemProperty "https", System.getProperty("https")
     systemProperty "user", System.getProperty("user")
     systemProperty "password", System.getProperty("password")
@@ -1230,6 +1235,86 @@ task analyticsCompatibilityTest(type: RestIntegTestTask) {
         }
         return true
     }
+}
+
+// Single-node multi-shard variant: 3 primary shards, 0 replicas.
+// Isolates shard coordination/merge behavior without multi-node replication.
+task analyticsSingleNodeMultiShardTest(type: RestIntegTestTask) {
+    description = "Runs all PPL ITs through the analytics-engine path (3 shards, 0 replicas). " +
+            "Same as analyticsCompatibilityTest but with multi-shard indices."
+    group = "verification"
+    // Copy all config from analyticsCompatibilityTest but override shards
+    testLogging { events "skipped", "failed"; exceptionFormat "short" }
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    getClusters().clear()
+    systemProperty 'tests.security.manager', 'false'
+    systemProperty 'project.root', project.projectDir.absolutePath
+    systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
+    systemProperty 'defaultQuerySizeLimit', '10000'
+    systemProperty 'tests.analytics.force_routing', 'true'
+    systemProperty 'tests.analytics.parquet_indices', 'true'
+    systemProperty 'tests.analytics.num_shards', '3'
+    systemProperty 'tests.analytics.num_replicas', '0'
+    systemProperty "https", System.getProperty("https")
+    systemProperty "user", System.getProperty("user")
+    systemProperty "password", System.getProperty("password")
+    ignoreFailures = true
+    reports {
+        junitXml.required.set(true)
+        junitXml.outputLocation.set(file("$buildDir/test-results/analyticsSingleNodeMultiShard"))
+        html.required.set(true)
+        html.outputLocation.set(file("$buildDir/reports/tests/analyticsSingleNodeMultiShard"))
+    }
+    filter {
+        includeTestsMatching "org.opensearch.sql.calcite.remote.*IT"
+        includeTestsMatching "org.opensearch.sql.ppl.*IT"
+    }
+    exclude 'org/opensearch/sql/bwc/**'
+    exclude 'org/opensearch/sql/doctest/**/*IT.class'
+    exclude 'org/opensearch/sql/correctness/**'
+    exclude 'org/opensearch/sql/jdbc/**'
+    exclude 'org/opensearch/sql/security/**'
+    onlyIf { System.getProperty("tests.rest.cluster") != null }
+}
+
+// Multi-node multi-shard variant: 3 primary shards, 1 replica. Requires a 3-node cluster.
+task analyticsMultiShardTest(type: RestIntegTestTask) {
+    description = "Runs all PPL ITs through the analytics-engine path (3 shards, 1 replica). " +
+            "Requires a 3-node cluster."
+    group = "verification"
+    testLogging { events "skipped", "failed"; exceptionFormat "short" }
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    getClusters().clear()
+    systemProperty 'tests.security.manager', 'false'
+    systemProperty 'project.root', project.projectDir.absolutePath
+    systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
+    systemProperty 'defaultQuerySizeLimit', '10000'
+    systemProperty 'tests.analytics.force_routing', 'true'
+    systemProperty 'tests.analytics.parquet_indices', 'true'
+    systemProperty 'tests.analytics.num_shards', '3'
+    systemProperty 'tests.analytics.num_replicas', '1'
+    systemProperty "https", System.getProperty("https")
+    systemProperty "user", System.getProperty("user")
+    systemProperty "password", System.getProperty("password")
+    ignoreFailures = true
+    reports {
+        junitXml.required.set(true)
+        junitXml.outputLocation.set(file("$buildDir/test-results/analyticsMultiShard"))
+        html.required.set(true)
+        html.outputLocation.set(file("$buildDir/reports/tests/analyticsMultiShard"))
+    }
+    filter {
+        includeTestsMatching "org.opensearch.sql.calcite.remote.*IT"
+        includeTestsMatching "org.opensearch.sql.ppl.*IT"
+    }
+    exclude 'org/opensearch/sql/bwc/**'
+    exclude 'org/opensearch/sql/doctest/**/*IT.class'
+    exclude 'org/opensearch/sql/correctness/**'
+    exclude 'org/opensearch/sql/jdbc/**'
+    exclude 'org/opensearch/sql/security/**'
+    onlyIf { System.getProperty("tests.rest.cluster") != null }
 }
 
 task analyticsCompatibilityReport {
